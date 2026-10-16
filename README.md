@@ -136,3 +136,15 @@ The root `render.yaml` defines a Render Flask API web service and a static React
 Render provides managed PostgreSQL, not managed MySQL. This project currently uses MySQL-specific SQL, so the Blueprint expects an external MySQL service. The API initializes its tables on startup. The frontend API URL and CORS origin are connected to the two Render services through their generated URLs. The Blueprint generates `SECRET_KEY` and enables secure session cookies for HTTPS.
 
 The deployed services are not public until the Blueprint is created from a connected Git repository and valid MySQL connection values are supplied. Check your Render plan and external database provider for any usage charges.
+
+## Deploy the frontend to Vercel
+
+The React frontend can be deployed to Vercel while the existing Flask API runs on Render. The root `vercel.json` builds `frontend` and rewrites portal routes such as `/portal` and `/staff` to the React app. The Flask API and MySQL database remain separate services; deploying only the frontend does not make the local database publicly available.
+
+1. Push this project to GitHub and import the repository into Vercel. Keep the project root as the Vercel Root Directory so it can read `vercel.json`.
+2. Set the Vercel project environment variable `VITE_API_BASE_URL` to the public Render API URL, without a trailing slash (for example, `https://your-api.onrender.com`). Set it for Production and Preview as appropriate, then redeploy.
+3. Provision an externally hosted MySQL database reachable by the Render API. In the Render API service, set `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, and `DB_NAME` from the database provider. Never put database credentials in Vercel or the frontend.
+4. Set the Render API service's `FRONTEND_ORIGINS` to the exact Vercel production origin (for example, `https://your-project.vercel.app`). If multiple browser origins are needed, use a comma-separated list. Keep `SECRET_KEY` private and set `SESSION_COOKIE_SECURE=true` for HTTPS.
+5. Redeploy the Render API and verify its `/api/health` endpoint reports a connected database. Then open the Vercel site and test customer sign-in and ticket creation.
+
+The app is publicly reachable after deployment, so anyone can visit it. Authentication does not replace production security review; do not expose the development/admin endpoints publicly without adding the required authorization protections.
