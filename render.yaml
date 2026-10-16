@@ -1,0 +1,45 @@
+services:
+  - type: web
+    name: dairycare-360-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -c "from app import initialize_database; initialize_database()" && gunicorn app:app --bind 0.0.0.0:$PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.4
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SESSION_COOKIE_SECURE
+        value: true
+      - key: FRONTEND_ORIGINS
+        fromService:
+          type: web
+          name: dairycare-360-frontend
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: 3306
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        value: ticket_tracker
+  - type: web
+    name: dairycare-360-frontend
+    runtime: static
+    buildCommand: npm --prefix frontend ci && npm --prefix frontend run build
+    staticPublishPath: ./frontend/dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        fromService:
+          type: web
+          name: dairycare-360-api
+          envVarKey: RENDER_EXTERNAL_URL
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
