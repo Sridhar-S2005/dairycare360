@@ -129,22 +129,14 @@ When signed in with an administrator account, open **Settings → User accounts*
 
 The admin endpoints are `GET /api/admin/users` and `PATCH /api/admin/users/<id>/status`, and require an authenticated `admin` session. If the user list says administrator access is required, sign in through the app as an admin in the same browser session and refresh the list.
 
-## Deploy to Render
+## Deploy the frontend to Vercel and the API to Render
 
-The root `render.yaml` defines a Render Flask API web service and a static React frontend. Push this repository to GitHub, then create a **Blueprint** in the Render Dashboard and select the repository. During setup, provide `DB_HOST`, `DB_USER`, and `DB_PASSWORD` for an externally hosted MySQL database; the database must already exist and allow connections from Render. `DB_NAME` defaults to `ticket_tracker`.
+The root `vercel.json` builds the React frontend and rewrites portal routes such as `/portal` and `/staff`. The root `render.yaml` defines only the Flask API. A separately hosted, publicly reachable MySQL-compatible database is required; Vercel and Render do not make your local MySQL server public.
 
-Render provides managed PostgreSQL, not managed MySQL. This project currently uses MySQL-specific SQL, so the Blueprint expects an external MySQL service. The API initializes its tables on startup. The frontend API URL and CORS origin are connected to the two Render services through their generated URLs. The Blueprint generates `SECRET_KEY` and enables secure session cookies for HTTPS.
+1. In TiDB Cloud Starter, create a **MySQL-compatible** cluster and a database named `ticket_tracker`. Copy its public endpoint hostname, port, username, and generated password from its connection instructions. TiDB Starter requires a TLS connection; check its connection instructions and verify TLS is negotiated by the database driver. The free tier has a limited usage quota and may reject new connections after that quota is exhausted.
+2. In the Render Dashboard, create a **Blueprint** from `Sridhar-S2005/dairycare360` on branch `main`. When prompted for sync environment values, enter `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, and `FRONTEND_ORIGINS`. For TiDB, use the port provided by its connection instructions (commonly `4000`), and set `FRONTEND_ORIGINS` to the Vercel production origin. Never put database credentials in Vercel, source code, or chat. The blueprint generates `SECRET_KEY` and enables secure session cookies.
+3. Wait for the Render service `dairycare-360-api` to deploy, then verify `https://<render-api-host>/api/health` reports `{"status":"ok","database":"connected"}`. If it reports an error, inspect the Render logs and confirm the TiDB public endpoint, credentials, TLS, and allowed network access.
+4. In Vercel, import `Sridhar-S2005/dairycare360` from GitHub. Keep the repository root as the project root so Vercel reads `vercel.json`. Set `VITE_API_BASE_URL` to `https://<render-api-host>` (no trailing slash) for Production, then deploy.
+5. Confirm that the Vercel origin exactly matches Render's `FRONTEND_ORIGINS`, including `https://`. Test customer registration/login and ticket creation on the deployed site.
 
-The deployed services are not public until the Blueprint is created from a connected Git repository and valid MySQL connection values are supplied. Check your Render plan and external database provider for any usage charges.
-
-## Deploy the frontend to Vercel
-
-The React frontend can be deployed to Vercel while the existing Flask API runs on Render. The root `vercel.json` builds `frontend` and rewrites portal routes such as `/portal` and `/staff` to the React app. The Flask API and MySQL database remain separate services; deploying only the frontend does not make the local database publicly available.
-
-1. Push this project to GitHub and import the repository into Vercel. Keep the project root as the Vercel Root Directory so it can read `vercel.json`.
-2. Set the Vercel project environment variable `VITE_API_BASE_URL` to the public Render API URL, without a trailing slash (for example, `https://your-api.onrender.com`). Set it for Production and Preview as appropriate, then redeploy.
-3. Provision an externally hosted MySQL database reachable by the Render API. In the Render API service, set `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, and `DB_NAME` from the database provider. Never put database credentials in Vercel or the frontend.
-4. Set the Render API service's `FRONTEND_ORIGINS` to the exact Vercel production origin (for example, `https://your-project.vercel.app`). If multiple browser origins are needed, use a comma-separated list. Keep `SECRET_KEY` private and set `SESSION_COOKIE_SECURE=true` for HTTPS.
-5. Redeploy the Render API and verify its `/api/health` endpoint reports a connected database. Then open the Vercel site and test customer sign-in and ticket creation.
-
-The app is publicly reachable after deployment, so anyone can visit it. Authentication does not replace production security review; do not expose the development/admin endpoints publicly without adding the required authorization protections.
+The app will be publicly reachable after both deployments complete, so anyone can visit it. Authentication does not replace a production security review; the dashboard's admin ticket endpoints must be protected before public production use. Check provider plans and usage limits; free quotas are not an unlimited availability guarantee.
